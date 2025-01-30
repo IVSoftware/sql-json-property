@@ -1,5 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using SQLite;
+﻿using SQLite;
 using Newtonsoft.Json;
 
 Console.Title = "Json SQL Property Demo";
@@ -59,8 +58,6 @@ using(var someORMConnection = new SQLiteConnection(_pathToDB))
     Console.WriteLine(loopback);
     Console.ReadKey();
 }
-
-ObservableCollection<MyClass> MyClassData = new ObservableCollection<MyClass>();
 
 public class MySubClass
 {
