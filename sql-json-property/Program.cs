@@ -1,6 +1,23 @@
 ﻿using SQLite;
 using Newtonsoft.Json;
+using System.Collections.ObjectModel;
 
+ObservableCollection<MyClass> Items = new();
+Items.CollectionChanged += (sender, e) =>
+{
+    switch (e.Action)
+    {
+        case System.Collections.Specialized.NotifyCollectionChangedAction.Add:
+            if(e.NewItems != null)
+            {
+                foreach(var record in e.NewItems.OfType<MyClass>())
+                {
+                    Console.WriteLine(record);
+                }
+            }
+            break;
+    }
+};
 Console.Title = "Json SQL Property Demo";
 string _pathToDB =
     Path.Combine(
@@ -51,11 +68,24 @@ using(var someORMConnection = new SQLiteConnection(_pathToDB))
     ];
     someORMConnection.InsertAll(testData);
 
+    Console.WriteLine("TEST: Query a single record and display it in the console.");
+    Console.WriteLine("===================================================");
     var loopback = someORMConnection
         .Table<MyClass>()
         .FirstOrDefault(_ => _.mystring1 == "Hotel");
 
     Console.WriteLine(loopback);
+    Console.WriteLine();
+
+
+    Console.WriteLine("TEST: ObservableCollection from Query.");
+    Console.WriteLine("=====================================");
+    Items.Clear();
+    someORMConnection
+        .Table<MyClass>()
+        .ToList()
+        .ForEach(_=> Items.Add(_));
+
     Console.ReadKey();
 }
 

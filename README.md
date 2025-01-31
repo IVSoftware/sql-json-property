@@ -1,6 +1,12 @@
-If I'm following your intention here, you want to have a column in your table that contains a collection type not supported by the ORM (and this means "whatever" that ORM happens to be).
+Let me see whether I'm following your intent here. It seems that you want to have a column in your table that contains "some `<T>`" (which in your case is `List<MySubclass>`) not supported by the ORM ("whatever" that ORM happens to be). I'd like to share a solution that works really well for me, and it really doesn't matter _what_ type of data that field might hold. 
+___
+*Since I want to show a "real" database interaction and you haven't (yet) specified an ORM in the tags, I hope it's OK if I use [sqlite-net-pcl](https://www.nuget.org/packages/sqlite-net-pcl) to do this mock. Granted, your post shows `SqlDataReader` and that ORM doesn't have one, but I don't think the question is essentially about `SQLiteDataReader`.*
+___
 
-Here's solution that works really well for me, and it really doesn't matter _what_ type of data that field might hold. I want to show a "real" database interactio and you don't specify an ORM in the tags so I hope it's OK if I use sqlite-net-pcl to do that mock. Granted, that ORM doesn't have a `SqlDataReader` but I don't think the question is essentially about `SQLiteDataReader`.
+**Proposed Solution:** 
+
+Store the `<T>` by serializing to JSON, then make this transparent to the class user by doing a little compensatory name mapping.
+___
 
 - _First_ you take the `MySubClassData` property that you show in `MyClass` and hide it from the data reader using whatever is appropriate in the ORM idiom.
 - _Next_ you make a string property that will be a JSON serialization of that arbitrary class (and optionally map the name of it to e.g. `MySubclassData`);
@@ -48,12 +54,31 @@ ___
 
 **Minimal Example using a Console App**
 
-This will write three records, then query one of them and output its string represntation to the console window.
+This will write three records, query one of them and output its string representation to the console, then perform a query to populate the `ObservableCollection<MyClass>` relying on the `CollectionChenged` handler to output the values to the console as they are added..
+
+[![console output][1]][1]
 
 ~~~
 using SQLite;
 using Newtonsoft.Json;
+using System.Collections.ObjectModel;
 
+ObservableCollection<MyClass> Items = new();
+Items.CollectionChanged += (sender, e) =>
+{
+    switch (e.Action)
+    {
+        case System.Collections.Specialized.NotifyCollectionChangedAction.Add:
+            if(e.NewItems != null)
+            {
+                foreach(var record in e.NewItems.OfType<MyClass>())
+                {
+                    Console.WriteLine(record);
+                }
+            }
+            break;
+    }
+};
 Console.Title = "Json SQL Property Demo";
 string _pathToDB =
     Path.Combine(
@@ -104,11 +129,24 @@ using(var someORMConnection = new SQLiteConnection(_pathToDB))
     ];
     someORMConnection.InsertAll(testData);
 
+    Console.WriteLine("TEST: Query a single record and display it in the console.");
+    Console.WriteLine("===================================================");
     var loopback = someORMConnection
         .Table<MyClass>()
         .FirstOrDefault(_ => _.mystring1 == "Hotel");
 
     Console.WriteLine(loopback);
+    Console.WriteLine();
+
+
+    Console.WriteLine("TEST: ObservableCollection from Query.");
+    Console.WriteLine("=====================================");
+    Items.Clear();
+    someORMConnection
+        .Table<MyClass>()
+        .ToList()
+        .ForEach(_=> Items.Add(_));
+
     Console.ReadKey();
 }
 ~~~
@@ -116,6 +154,10 @@ using(var someORMConnection = new SQLiteConnection(_pathToDB))
 
 ___
 
-DB Browser for SQLite 
+**DB Browser for SQLite** 
+
+[![database contents][2]][2]
 
 
+  [1]: https://i.sstatic.net/JpneyzU2.png
+  [2]: https://i.sstatic.net/TM0IfjyJ.png
